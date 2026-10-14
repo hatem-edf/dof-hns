@@ -9,3 +9,8 @@ new Phaser.Game({
   pixelArt: true,
   scene: [GridScene],
 });
+
+// Dev-only: screenshot bridge (F9) and error capture. Dropped from prod builds.
+if (import.meta.env.DEV) {
+  import('./dev/bridge.js');
+}
