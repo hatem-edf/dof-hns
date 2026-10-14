@@ -7,6 +7,9 @@ new Phaser.Game({
   height: 640,
   backgroundColor: '#101418',
   pixelArt: true,
+  // Keep the WebGL buffer between frames so F9 / canvas.toBlob captures
+  // the actual frame instead of the cleared (black) one.
+  preserveDrawingBuffer: true,
   scene: [GridScene],
 });
 
