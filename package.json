@@ -1,0 +1,17 @@
+{
+  "name": "dof-hns",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isometric hack & slash in the browser, Dofus-inspired",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0",
+    "vite": "^8.3.4"
+  }
+}
