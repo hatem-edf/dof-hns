@@ -1,14 +1,16 @@
 // The whole simulation state. step() runs the fixed system order from
-// docs/design.md; step 1 implements movement only, the rest slot in later.
+// docs/design.md; step 2 adds monster idle wander, the rest slot in later.
 import { createRng } from './rng.js';
 import { createPlayer } from './player.js';
+import { spawnMonsters } from './zone.js';
+import { wanderStep } from './monster.js';
 import { MAP_SIZE, gridToPx, clampToMap } from './map.js';
 
 // Player spawn tile, bottom corner of the diamond (docs/design.md).
 export const PLAYER_SPAWN = { col: 10, row: 11 };
 
 export function createWorld(className, seed) {
-  return {
+  const world = {
     seed,
     rng: createRng(seed),
     time: 0,
@@ -22,6 +24,8 @@ export function createWorld(className, seed) {
     effects: [],
     events: [],
   };
+  spawnMonsters(world);
+  return world;
 }
 
 export function step(world, input, dt) {
@@ -36,6 +40,11 @@ export function step(world, input, dt) {
     );
     p.pos.x = c.x;
     p.pos.y = c.y;
+  }
+
+  // 5. Monsters decide and act: idle wander only until step 3 adds aggro.
+  for (const m of world.monsters) {
+    if (m.state === 'idle') wanderStep(m, world.rng, dt);
   }
 
   world.time += dt;
