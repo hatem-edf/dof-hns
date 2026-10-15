@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import GridScene from './scenes/GridScene.js';
+import MenuScene from './scenes/MenuScene.js';
+import GameScene from './scenes/GameScene.js';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -10,7 +11,7 @@ const game = new Phaser.Game({
   // Keep the WebGL buffer between frames so F9 / canvas.toBlob captures
   // the actual frame instead of the cleared (black) one.
   preserveDrawingBuffer: true,
-  scene: [GridScene],
+  scene: [MenuScene, GameScene],
 });
 
 // Hook for dev tooling (tools/shot.mjs waits on an active scene).
