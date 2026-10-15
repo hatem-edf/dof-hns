@@ -79,12 +79,13 @@ export default class GameScene extends Phaser.Scene {
     const { x, y } = this.world.player.pos;
     const gfx = this.playerGfx;
     gfx.clear();
-    // Small diamond body, feet at the tile point, head a little above it.
+    // Body centred on the world position, so the clamp reads exactly at all
+    // four edges. A sprite anchored at the feet comes in the step 9 art pass.
     const pts = [
-      { x: x - 14, y: y - 8 },
-      { x, y: y - 15 },
-      { x: x + 14, y: y - 8 },
-      { x, y: y - 1 },
+      { x: x - 14, y },
+      { x, y: y - 8 },
+      { x: x + 14, y },
+      { x, y: y + 8 },
     ];
     gfx.fillStyle(PLAYER_COLORS[this.world.player.class], 1);
     gfx.fillPoints(pts, true);

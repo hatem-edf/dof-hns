@@ -28,6 +28,16 @@ test('map: a point pushed past the top edge clamps to the diamond border', () =>
   assert.deepEqual(p, { x: 480, y: 128 });
 });
 
+test('map: points pushed past the top-left and top-right edges clamp onto them', () => {
+  assert.deepEqual(clampToMap(300, 68), { x: 450, y: 143 });
+  assert.deepEqual(clampToMap(692, 84), { x: 542, y: 159 });
+});
+
+test('map: a point already on an edge is unchanged', () => {
+  assert.deepEqual(clampToMap(400, 168), { x: 400, y: 168 });
+  assert.deepEqual(clampToMap(592, 184), { x: 592, y: 184 });
+});
+
 test('map: a point inside the diamond is unchanged', () => {
   assert.deepEqual(clampToMap(480, 320), { x: 480, y: 320 });
 });
