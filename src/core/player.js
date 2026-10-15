@@ -36,5 +36,6 @@ export function createPlayer(className, pos) {
     kills: 0,
     gold: 0,
     cooldowns: { basic: 0, s1: 0, s2: 0, s3: 0 },
+    dash: null, // active Charge: { dirX, dirY, distLeft, hitIds }
   };
 }

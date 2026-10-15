@@ -59,6 +59,8 @@ world = {
     equipment: { weapon: null, armor: null },
     kills: 0, gold: 0,
     cooldowns: { basic: 0, s1: 0, s2: 0, s3: 0 },
+    dash: null,             // active Charge: { dirX, dirY, distLeft, hitIds };
+                            // an enemy is "crossed" within 16 px of the dash path
   },
   dots: [{ targetId, ticksLeft, nextAt }],   // active Coup Maudit, on monsters
   monsters: [{ id, type, home: { x, y }, pos, hp, maxHp, state, windupT, atkCd, heavyCd }],
@@ -93,7 +95,9 @@ Both classes share the stat model: max HP, damage (with ±10% variance per hit),
 defense (flat reduction per hit, minimum 1 damage), move speed (px/s), and
 crit chance (crits deal 2x damage). No AP, no mana, no grid costs. Spells are
 limited by cooldowns only. A whiffed swing (no target in range and arc) does
-not spend the cooldown.
+not spend the cooldown. Spell casts are fully committed: Charge and Coup
+Tonnerre spend their cooldown even when they hit nothing; Coup Maudit is the
+exception — with no enemy within 100 px it casts nothing and spends nothing.
 
 ### Iop, the warrior
 

@@ -1,11 +1,12 @@
 // The whole simulation state. step() runs the fixed system order from
 // docs/design.md, every frame:
 //   1. Cooldowns tick down.
-//   2. Player moves (clamped to the map diamond).
-//   3. Player casts (basic attack for now, spells from step 4).
+//   2. Player moves (clamped to the map diamond; a Charge dash replaces
+//      normal movement while active).
+//   3. Player casts (basic attack, then spells 1 to 3).
 //   4. Projectiles fly and hit (step 5).
 //   5. Monsters decide and act (wolf AI from step 3, the rest wander).
-//   6. Damage-over-time spells tick (step 4).
+//   6. Damage-over-time spells tick (Coup Maudit).
 //   7. Pickups collect on touch (step 6).
 //   8. Win and lose checks (defeat now, victory in step 8).
 // Once status leaves 'playing' the simulation is frozen.
@@ -14,6 +15,7 @@ import { createPlayer, CLASSES } from './player.js';
 import { spawnMonsters } from './zone.js';
 import { monsterStep } from './monster.js';
 import { hitTest, rollDamage, applyDamage } from './combat.js';
+import { castSpells, dashStep, dotTick } from './spells.js';
 import { MAP_SIZE, gridToPx, clampToMap } from './map.js';
 
 // Player spawn tile, bottom corner of the diamond (docs/design.md).
@@ -49,19 +51,24 @@ export function step(world, input, dt) {
     p.cooldowns[key] = Math.max(0, p.cooldowns[key] - dt);
   }
 
-  // 2. Player moves.
-  const len = Math.hypot(input.move.x, input.move.y);
-  if (len > 0) {
-    const c = clampToMap(
-      p.pos.x + (input.move.x / len) * p.stats.speed * dt,
-      p.pos.y + (input.move.y / len) * p.stats.speed * dt
-    );
-    p.pos.x = c.x;
-    p.pos.y = c.y;
+  // 2. Player moves. A Charge dash replaces normal movement while active.
+  if (p.dash) {
+    dashStep(world, dt);
+  } else {
+    const len = Math.hypot(input.move.x, input.move.y);
+    if (len > 0) {
+      const c = clampToMap(
+        p.pos.x + (input.move.x / len) * p.stats.speed * dt,
+        p.pos.y + (input.move.y / len) * p.stats.speed * dt
+      );
+      p.pos.x = c.x;
+      p.pos.y = c.y;
+    }
   }
 
-  // 3. Player basic attack (Frappe). Hits every living monster in range and
-  //    arc; a whiffed swing (no target) does not spend the cooldown.
+  // 3. Player casts: basic attack (Frappe), then spells 1 to 3. The basic
+  //    attack hits every living monster in range and arc; a whiffed swing
+  //    (no target) does not spend the cooldown.
   if (input.basic && p.cooldowns.basic <= 0) {
     const t = CLASSES[p.class];
     const targets = world.monsters.filter((m) =>
@@ -75,6 +82,7 @@ export function step(world, input, dt) {
       }
     }
   }
+  castSpells(world, input);
 
   // 4. Projectiles fly and hit (step 5, list is empty for now).
 
@@ -83,7 +91,8 @@ export function step(world, input, dt) {
     monsterStep(m, world, dt);
   }
 
-  // 6. Damage-over-time spells tick (step 4).
+  // 6. Damage-over-time spells tick (Coup Maudit).
+  dotTick(world);
   // 7. Pickups collect on touch (step 6).
 
   // 8. Win and lose checks: hp at 0 ends the run.

@@ -3,6 +3,8 @@ import { createWorld, step } from '../core/world.js';
 import { MAP_SIZE, MAP_W, MAP_H, ORIGIN } from '../core/map.js';
 import { gridToScreen, diamondCorners } from '../core/iso.js';
 import { ZONE_NAME } from '../core/zone.js';
+import { SPELLS } from '../core/spells.js';
+import { CLASSES } from '../core/player.js';
 
 // Placeholder palette until real tile art lands in public/assets/.
 const TILE_A = 0x3a4a3f;
@@ -94,6 +96,34 @@ export default class GameScene extends Phaser.Scene {
     this.keys = this.input.keyboard.addKeys(
       'W,A,S,D,UP,DOWN,LEFT,RIGHT,ONE,TWO,THREE'
     );
+
+    // Bottom skill boxes: basic attack plus spells 1 to 3, with the
+    // class-specific names and a cooldown fill (docs/design.md).
+    const spells = SPELLS[className];
+    this.skillBoxes = [
+      { label: 'clic', name: 'Frappe', total: CLASSES[className].basicCd, cd: () => this.world.player.cooldowns.basic },
+      { label: '1', name: spells.s1.name, total: spells.s1.cd, cd: () => this.world.player.cooldowns.s1 },
+      { label: '2', name: spells.s2.name, total: spells.s2.cd, cd: () => this.world.player.cooldowns.s2 },
+      { label: '3', name: spells.s3.name, total: spells.s3.cd, cd: () => this.world.player.cooldowns.s3 },
+    ].map((b, i) => {
+      const w = 130;
+      const h = 64;
+      const gap = 12;
+      const x = (MAP_W - (4 * w + 3 * gap)) / 2 + i * (w + gap);
+      const y = MAP_H - 80;
+      const box = { ...b, x, y, w, h };
+      box.keyText = this.add.text(x + 8, y + 6, b.label, {
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        color: '#9a927c',
+      });
+      box.nameText = this.add.text(x + w / 2, y + 34, b.name, {
+        fontSize: '13px',
+        fontFamily: 'monospace',
+        color: '#e8e0cc',
+      }).setOrigin(0.5, 0);
+      return box;
+    });
   }
 
   // Decor is fixed and visual only, so it is drawn once into the tile layer.
@@ -212,6 +242,21 @@ export default class GameScene extends Phaser.Scene {
     gfx.fillRect(16, 34, barW, barH);
     gfx.fillStyle(0x66aa4a, 1);
     gfx.fillRect(16, 34, barW * Math.max(0, p.hp / p.maxHp), barH);
+
+    // Skill boxes: dark panel, name/key labels are static texts, and a
+    // bottom-anchored fill whose height is the remaining fraction of the cd.
+    for (const b of this.skillBoxes) {
+      gfx.fillStyle(0x101418, 0.85);
+      gfx.fillRect(b.x, b.y, b.w, b.h);
+      const remaining = Math.max(0, b.cd());
+      const frac = Math.min(1, remaining / b.total);
+      if (frac > 0) {
+        gfx.fillStyle(0x000000, 0.55);
+        gfx.fillRect(b.x, b.y + b.h * (1 - frac), b.w, b.h * frac);
+      }
+      gfx.lineStyle(1, 0x4a4436, 1);
+      gfx.strokeRect(b.x, b.y, b.w, b.h);
+    }
   }
 
   drawDefeat() {
