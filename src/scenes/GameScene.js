@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { createWorld, step } from '../core/world.js';
-import { MAP_SIZE, MAP_W, ORIGIN } from '../core/map.js';
+import { MAP_SIZE, MAP_W, MAP_H, ORIGIN } from '../core/map.js';
 import { gridToScreen, diamondCorners } from '../core/iso.js';
 import { ZONE_NAME } from '../core/zone.js';
 
@@ -58,14 +58,34 @@ export default class GameScene extends Phaser.Scene {
     this.drawDecor(tiles);
 
     this.monsterGfx = this.add.graphics();
+    this.pickupGfx = this.add.graphics();
     this.playerGfx = this.add.graphics();
+    this.hudGfx = this.add.graphics();
+    this.defeatGfx = this.add.graphics();
+
+    this.classNameText = this.add.text(16, 12,
+      this.world.player.class[0].toUpperCase() + this.world.player.class.slice(1), {
+        fontSize: '16px',
+        fontFamily: 'monospace',
+        color: '#e8e0cc',
+      });
+
+    // Step 8 replaces this with the full end screen (stats, R/C).
+    this.defeatText = this.add.text(MAP_W / 2, MAP_H / 2, 'Défaite', {
+      fontSize: '48px',
+      fontFamily: 'monospace',
+      color: '#e05048',
+    }).setOrigin(0.5).setVisible(false);
 
     this.zoneText = this.add.text(MAP_W - 16, 12, ZONE_NAME, {
       fontSize: '18px',
       fontFamily: 'monospace',
       color: '#d4a942',
     }).setOrigin(1, 0);
-    this.killText = this.add.text(MAP_W - 16, 36, `0 of ${this.world.monsters.length}`, {
+    // Denominator is the zone total: world.monsters.length shrinks on kills,
+    // which would make the counter read e.g. "6 of 5" mid-run.
+    this.killTotal = this.world.monsters.length;
+    this.killText = this.add.text(MAP_W - 16, 36, `0 of ${this.killTotal}`, {
       fontSize: '16px',
       fontFamily: 'monospace',
       color: '#c8bfa8',
@@ -126,8 +146,11 @@ export default class GameScene extends Phaser.Scene {
 
     step(this.world, input, dt);
     this.drawMonsters();
+    this.drawPickups();
     this.drawPlayer();
-    this.killText.setText(`${this.world.player.kills} of ${this.world.monsters.length}`);
+    this.drawHud();
+    this.drawDefeat();
+    this.killText.setText(`${this.world.player.kills} of ${this.killTotal}`);
   }
 
   drawMonsters() {
@@ -156,6 +179,48 @@ export default class GameScene extends Phaser.Scene {
       gfx.fillRect(bx, by, barW, barH);
       gfx.fillStyle(0x66aa4a, 1);
       gfx.fillRect(bx, by, barW * (m.hp / m.maxHp), barH);
+
+      // Telegraph: a winding-up monster flashes a yellow "!" above its bar.
+      if (m.state === 'windup') {
+        const barTop = by - barH;
+        gfx.fillStyle(0xffe14a, 1);
+        gfx.fillRect(x - 2, barTop - 26, 4, 14);
+        gfx.fillRect(x - 2, barTop - 10, 4, 4);
+      }
+    }
+  }
+
+  drawPickups() {
+    const gfx = this.pickupGfx;
+    gfx.clear();
+    for (const pk of this.world.pickups) {
+      if (pk.kind !== 'gold') continue; // item pickups come in step 6
+      gfx.fillStyle(0xffd24a, 1);
+      gfx.fillCircle(pk.pos.x, pk.pos.y, 4);
+      gfx.lineStyle(1, 0x6a5a20, 1);
+      gfx.strokeCircle(pk.pos.x, pk.pos.y, 4);
+    }
+  }
+
+  drawHud() {
+    const p = this.world.player;
+    const gfx = this.hudGfx;
+    gfx.clear();
+    const barW = 160;
+    const barH = 10;
+    gfx.fillStyle(0x101418, 1);
+    gfx.fillRect(16, 34, barW, barH);
+    gfx.fillStyle(0x66aa4a, 1);
+    gfx.fillRect(16, 34, barW * Math.max(0, p.hp / p.maxHp), barH);
+  }
+
+  drawDefeat() {
+    const defeated = this.world.status === 'defeat';
+    this.defeatGfx.clear();
+    this.defeatText.setVisible(defeated);
+    if (defeated) {
+      this.defeatGfx.fillStyle(0x000000, 0.55);
+      this.defeatGfx.fillRect(0, 0, MAP_W, MAP_H);
     }
   }
 

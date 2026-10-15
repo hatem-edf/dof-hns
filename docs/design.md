@@ -92,7 +92,8 @@ into renderer state.
 Both classes share the stat model: max HP, damage (with ±10% variance per hit),
 defense (flat reduction per hit, minimum 1 damage), move speed (px/s), and
 crit chance (crits deal 2x damage). No AP, no mana, no grid costs. Spells are
-limited by cooldowns only.
+limited by cooldowns only. A whiffed swing (no target in range and arc) does
+not spend the cooldown.
 
 ### Iop, the warrior
 
