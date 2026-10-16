@@ -4,7 +4,7 @@
 //   2. Player moves (clamped to the map diamond; a Charge dash replaces
 //      normal movement while active).
 //   3. Player casts (basic attack, then spells 1 to 3).
-//   4. Projectiles fly and hit (step 5).
+//   4. Projectiles fly and hit (system 4 below).
 //   5. Monsters decide and act (wolf AI from step 3, the rest wander).
 //   6. Damage-over-time spells tick (Coup Maudit).
 //   7. Pickups collect on touch (step 6).
@@ -13,9 +13,9 @@
 import { createRng } from './rng.js';
 import { createPlayer, CLASSES } from './player.js';
 import { spawnMonsters } from './zone.js';
-import { monsterStep } from './monster.js';
+import { monsterStep, MONSTER_TYPES } from './monster.js';
 import { hitTest, rollDamage, applyDamage } from './combat.js';
-import { castSpells, dashStep, dotTick } from './spells.js';
+import { castSpells, dashStep, dotTick, pointSegDist, FIREBALL_RADIUS } from './spells.js';
 import { MAP_SIZE, gridToPx, clampToMap } from './map.js';
 
 // Player spawn tile, bottom corner of the diamond (docs/design.md).
@@ -84,7 +84,8 @@ export function step(world, input, dt) {
   }
   castSpells(world, input);
 
-  // 4. Projectiles fly and hit (step 5, list is empty for now).
+  // 4. Projectiles fly and hit.
+  projectileStep(world, dt);
 
   // 5. Monsters decide and act.
   for (const m of world.monsters) {
@@ -99,4 +100,51 @@ export function step(world, input, dt) {
   if (p.hp <= 0) world.status = 'defeat';
 
   world.time += dt;
+}
+
+// System 4: each projectile moves straight along dir by speed*dt (no further
+// than rangeLeft), and dies when rangeLeft runs out. A projectile hits the
+// first living enemy whose body — bodyRadius plus the fireball's own radius —
+// comes within the flight segment this frame, so a fast projectile cannot
+// tunnel a wolf between frames (the same segment test Charge uses).
+function projectileStep(world, dt) {
+  for (let i = world.projectiles.length - 1; i >= 0; i--) {
+    const pr = world.projectiles[i];
+    const stepDist = Math.min(pr.speed * dt, pr.rangeLeft);
+    const ex = pr.pos.x + pr.dir.x * stepDist;
+    const ey = pr.pos.y + pr.dir.y * stepDist;
+    const hit = firstEnemyOnSegment(world, pr.pos.x, pr.pos.y, ex, ey);
+    if (hit) {
+      applyDamage(world, hit, pr.damage, 0);
+      world.projectiles.splice(i, 1); // the projectile vanishes on hit
+      continue;
+    }
+    pr.pos.x = ex;
+    pr.pos.y = ey;
+    pr.rangeLeft -= stepDist;
+    if (pr.rangeLeft <= 0) world.projectiles.splice(i, 1);
+  }
+}
+
+// The first living enemy on the segment: the one whose centre is within
+// bodyRadius + FIREBALL_RADIUS of it and whose closest point on the segment
+// is nearest the muzzle. Ties are impossible in practice (monsters don't
+// overlap), so the first match wins.
+function firstEnemyOnSegment(world, sx, sy, ex, ey) {
+  const abx = ex - sx;
+  const aby = ey - sy;
+  const l2 = abx * abx + aby * aby;
+  let best = null;
+  let bestT = Infinity;
+  for (const m of world.monsters) {
+    if (m.hp <= 0) continue;
+    const touch = MONSTER_TYPES[m.type].bodyRadius + FIREBALL_RADIUS;
+    if (pointSegDist(m.pos.x, m.pos.y, sx, sy, ex, ey) > touch) continue;
+    const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((m.pos.x - sx) * abx + (m.pos.y - sy) * aby) / l2));
+    if (t < bestT) {
+      best = m;
+      bestT = t;
+    }
+  }
+  return best;
 }

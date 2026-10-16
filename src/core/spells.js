@@ -1,7 +1,6 @@
-// Spell table (all six, docs/design.md) plus the Iop cast resolution.
-// Cra's entries get name and cooldown now but cast nothing; their effects
-// land in step 5.
-// Fixed spell damage: 30 / 45 / 15. Monsters have no defense stat
+// Spell table (all six, docs/design.md) plus the Iop and Cra cast
+// resolution.
+// Fixed spell damage: 30 / 45 / 15 / 25 / 30. Monsters have no defense stat
 // (MONSTER_TYPES defines none), so like the step 3 basic attack, 0 goes into
 // applyDamage and the full fixed amount is dealt.
 import { hitTest, applyDamage } from './combat.js';
@@ -40,9 +39,26 @@ export const MAUDIT_RANGE = 100;
 export const MAUDIT_TICKS = 2;
 export const MAUDIT_INTERVAL = 1;
 
+// Boule de Feu: 320 px/s, 300 px max range, 25 damage to the first enemy the
+// projectile touches. FIREBALL_RADIUS is the plan's missing number: the
+// design gives no projectile size, so it is a small dot here; with a wolf's
+// 9 px body radius the touch distance is 15 px.
+export const FIREBALL_SPEED = 320;
+export const FIREBALL_RANGE = 300;
+export const FIREBALL_DAMAGE = 25;
+export const FIREBALL_RADIUS = 6;
+
+// Tornade: 30 damage to everything within 110 px of the player.
+export const TORNADE_DAMAGE = 30;
+export const TORNADE_RADIUS = 110;
+
+// Eau Vive: heal 70 HP, capped at maxHp.
+export const HEAL_AMOUNT = 70;
+
 // Distance from point (px, py) to the segment a->b. A zero-length segment
 // (a dash step fully eaten by the map clamp) degrades to the point distance.
-function pointSegDist(px, py, ax, ay, bx, by) {
+// Exported: system 4 uses the same test for projectile flight segments.
+export function pointSegDist(px, py, ax, ay, bx, by) {
   const abx = bx - ax;
   const aby = by - ay;
   const l2 = abx * abx + aby * aby;
@@ -90,11 +106,14 @@ export function castSpells(world, input) {
   const p = world.player;
   for (const slot of ['s1', 's2', 's3']) {
     if (!input[slot] || p.cooldowns[slot] > 0) continue;
-    if (p.class !== 'iop') continue; // Cra spells cast nothing until step 5.
-    const spell = SPELLS.iop[slot];
-    if (slot === 's1') castCharge(world, input.aim, spell);
-    else if (slot === 's2') castTonnerre(world, input.aim, spell);
-    else castMaudit(world, spell);
+    const spell = SPELLS[p.class][slot];
+    if (p.class === 'iop') {
+      if (slot === 's1') castCharge(world, input.aim, spell);
+      else if (slot === 's2') castTonnerre(world, input.aim, spell);
+      else castMaudit(world, spell);
+    } else if (slot === 's1') castFireball(world, input.aim, spell);
+    else if (slot === 's2') castTornade(world, spell);
+    else castEauVive(world, spell);
   }
 }
 
@@ -178,4 +197,49 @@ function castMaudit(world, spell) {
       nextAt: world.time + MAUDIT_INTERVAL,
     });
   }
+}
+
+// Boule de Feu: committed cast that spawns the projectile; system 4 flies it
+// and it vanishes on the first enemy it touches or at FIREBALL_RANGE.
+function castFireball(world, aim, spell) {
+  const p = world.player;
+  const dx = aim.x - p.pos.x;
+  const dy = aim.y - p.pos.y;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return; // the aim is exactly on the player: no direction to fire
+  p.cooldowns.s1 = spell.cd;
+  world.events.push({ kind: 'cast', name: spell.name });
+  world.projectiles.push({
+    owner: 'player',
+    pos: { x: p.pos.x, y: p.pos.y },
+    dir: { x: dx / len, y: dy / len },
+    speed: FIREBALL_SPEED,
+    rangeLeft: FIREBALL_RANGE,
+    damage: FIREBALL_DAMAGE,
+  });
+}
+
+// Tornade: a full cast — it spends the cooldown even when the circle hits
+// nothing, the same rule as Coup Tonnerre (see the cast above).
+function castTornade(world, spell) {
+  const p = world.player;
+  p.cooldowns.s2 = spell.cd;
+  world.events.push({ kind: 'cast', name: spell.name });
+  const targets = world.monsters.filter(
+    (m) => m.hp > 0 && Math.hypot(m.pos.x - p.pos.x, m.pos.y - p.pos.y) <= TORNADE_RADIUS
+  );
+  for (const m of targets) {
+    applyDamage(world, m, TORNADE_DAMAGE, 0);
+  }
+}
+
+// Eau Vive: committed by design — casting at full HP still spends the 12 s
+// cooldown. Emits a 'heal' event with the HP actually restored, 0 at full.
+function castEauVive(world, spell) {
+  const p = world.player;
+  p.cooldowns.s3 = spell.cd;
+  world.events.push({ kind: 'cast', name: spell.name });
+  const healed = Math.min(HEAL_AMOUNT, p.maxHp - p.hp);
+  p.hp += healed;
+  world.events.push({ kind: 'heal', amount: healed });
 }

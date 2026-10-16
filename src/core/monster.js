@@ -5,6 +5,9 @@ import { clampToMap } from './map.js';
 // Idle wander stays within this many px of the monster's home point.
 export const WANDER_RADIUS = 40;
 
+// bodyRadius is the monster's half-width: the projectile hit test in system 4
+// (and the scene's body drawing) use it, so a fireball touches the wolf's body
+// edge, not its centre point.
 export const MONSTER_TYPES = {
   wolf: {
     maxHp: 40,
@@ -14,6 +17,7 @@ export const MONSTER_TYPES = {
     attackRange: 45,
     windup: 0.5,
     atkCd: 1.2,
+    bodyRadius: 9,
     gold: [3, 6],
   },
   skeleton: {
@@ -24,6 +28,7 @@ export const MONSTER_TYPES = {
     attackRange: 220,
     windup: 0.4,
     atkCd: 2.2,
+    bodyRadius: 11,
     gold: [5, 10],
   },
   orik: {
@@ -37,6 +42,7 @@ export const MONSTER_TYPES = {
     atkCd: 1.4,
     heavyWindup: 1.5,
     heavyCd: 6,
+    bodyRadius: 17,
     gold: [15, 25],
   },
 };

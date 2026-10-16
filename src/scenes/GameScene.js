@@ -3,8 +3,9 @@ import { createWorld, step } from '../core/world.js';
 import { MAP_SIZE, MAP_W, MAP_H, ORIGIN } from '../core/map.js';
 import { gridToScreen, diamondCorners } from '../core/iso.js';
 import { ZONE_NAME } from '../core/zone.js';
-import { SPELLS } from '../core/spells.js';
+import { SPELLS, FIREBALL_RADIUS } from '../core/spells.js';
 import { CLASSES } from '../core/player.js';
+import { MONSTER_TYPES } from '../core/monster.js';
 
 // Placeholder palette until real tile art lands in public/assets/.
 const TILE_A = 0x3a4a3f;
@@ -14,9 +15,9 @@ const TILE_EDGE = 0x22302a;
 // Placeholder body colors until the step 9 art pass.
 const PLAYER_COLORS = { iop: 0xc0504a, cra: 0x57a05a };
 
-// Type-colored placeholder bodies; Orik is larger and darker (docs/design.md).
+// Type-colored placeholder bodies; the per-type body size lives in core
+// (MONSTER_TYPES.bodyRadius) so the projectile hit test draws what it hits.
 const MONSTER_COLORS = { wolf: 0x8a6a42, skeleton: 0xd9d4c0, orik: 0x7a4b57 };
-const MONSTER_HALF_W = { wolf: 9, skeleton: 11, orik: 17 };
 
 const TREE_GREEN = 0x4a6a3a;
 const TREE_TRUNK = 0x6a4a2a;
@@ -60,6 +61,7 @@ export default class GameScene extends Phaser.Scene {
     this.drawDecor(tiles);
 
     this.monsterGfx = this.add.graphics();
+    this.projectileGfx = this.add.graphics();
     this.pickupGfx = this.add.graphics();
     this.playerGfx = this.add.graphics();
     this.hudGfx = this.add.graphics();
@@ -175,7 +177,9 @@ export default class GameScene extends Phaser.Scene {
     };
 
     step(this.world, input, dt);
+    this.aim = input.aim;
     this.drawMonsters();
+    this.drawProjectiles();
     this.drawPickups();
     this.drawPlayer();
     this.drawHud();
@@ -187,7 +191,7 @@ export default class GameScene extends Phaser.Scene {
     const gfx = this.monsterGfx;
     gfx.clear();
     for (const m of this.world.monsters) {
-      const hw = MONSTER_HALF_W[m.type];
+      const hw = MONSTER_TYPES[m.type].bodyRadius;
       const { x, y } = m.pos;
       const pts = [
         { x: x - hw, y },
@@ -217,6 +221,19 @@ export default class GameScene extends Phaser.Scene {
         gfx.fillRect(x - 2, barTop - 26, 4, 14);
         gfx.fillRect(x - 2, barTop - 10, 4, 4);
       }
+    }
+  }
+
+  // Fireball: a small orange dot with a dark rim, sized like the core's
+  // FIREBALL_RADIUS so the picture matches the hit test.
+  drawProjectiles() {
+    const gfx = this.projectileGfx;
+    gfx.clear();
+    for (const pr of this.world.projectiles) {
+      gfx.fillStyle(0xff7a2a, 1);
+      gfx.fillCircle(pr.pos.x, pr.pos.y, FIREBALL_RADIUS);
+      gfx.lineStyle(1, 0x9a3a10, 1);
+      gfx.strokeCircle(pr.pos.x, pr.pos.y, FIREBALL_RADIUS);
     }
   }
 
@@ -285,5 +302,17 @@ export default class GameScene extends Phaser.Scene {
     gfx.fillPoints(pts, true);
     gfx.lineStyle(2, 0x101418, 1);
     gfx.strokePoints(pts, true);
+
+    // Cra staff: a short green line from the body toward the aim, the
+    // placeholder stand-in until the step 9 art pass gives it a sprite.
+    if (this.world.player.class === 'cra') {
+      const ax = this.aim.x - x;
+      const ay = this.aim.y - y;
+      const al = Math.hypot(ax, ay) || 1;
+      const ux = ax / al;
+      const uy = ay / al;
+      gfx.lineStyle(3, 0x2e6b33, 1);
+      gfx.lineBetween(x + ux * 8, y + uy * 8, x + ux * 26, y + uy * 26);
+    }
   }
 }
